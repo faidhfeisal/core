@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# Solidity
+build/
+artifacts/
+
+# IDEs
+.vscode/
+.idea/
+
+# Misc
+.DS_Store
+node_modules
