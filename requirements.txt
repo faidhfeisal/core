@@ -1,8 +1,6 @@
-web3==6.20.0
-py-solc-x==1.1.1
-cryptography==3.4.7
-fastapi==0.68.0
-uvicorn==0.15.0
-pytest==6.2.5
-optimism==0.1.0  # You may need to find the correct Optimism SDK for Python
-streamr-client==1.0.0  # You may need to find the correct Streamr client for Python
+web3
+cryptography
+fastapi
+uvicorn
+pytest
+didkit
