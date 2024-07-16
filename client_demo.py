@@ -1,18 +1,20 @@
 import asyncio
 import aiohttp
+import time
+import json
 from eth_account import Account
 from eth_account.messages import encode_defunct
 from web3 import Web3
 import os
 from config import get_web3_url, WALLET_ADDRESS, WALLET_PRIVATE_KEY
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def main():
     # Connect to the network
     w3 = Web3(Web3.HTTPProvider(get_web3_url()))
 
-    # For demo purposes, we'll create a new account
-    # In a real scenario, you'd use a real wallet
-    # account = w3.eth.account.create()
     wallet_address = WALLET_ADDRESS
     private_key = WALLET_PRIVATE_KEY
 
@@ -54,13 +56,19 @@ async def main():
             "name": "Test Static Asset",
             "description": "A test static asset",
             "price": 100,
-            "is_stream": False,
-            "data": test_file_path
+            "is_stream": False
         }
-        add_static_response = await session.post("http://localhost:8000/add-asset", json=static_asset, headers=headers)
+        
+        # Prepare multipart form data
+        form_data = aiohttp.FormData()
+        form_data.add_field('file', open(test_file_path, 'rb'), filename='test_file.txt')
+        form_data.add_field('asset', json.dumps(static_asset), content_type='application/json')
+
+        add_static_response = await session.post("http://localhost:8000/add-asset", data=form_data, headers=headers)
         static_asset_data = await add_static_response.json()
         print("Static asset added:", static_asset_data)
         static_asset_id = static_asset_data["asset_id"]
+        static_asset_price = static_asset["price"]  # Store the price for later use
 
         # Add a stream asset
         stream_asset = {
@@ -70,20 +78,34 @@ async def main():
             "is_stream": True,
             "data": "test_stream_id"
         }
-        add_stream_response = await session.post("http://localhost:8000/add-asset", json=stream_asset, headers=headers)
+        add_stream_response = await session.post("http://localhost:8000/add-asset", json={"asset": stream_asset}, headers=headers)
         stream_asset_data = await add_stream_response.json()
         print("Stream asset added:", stream_asset_data)
         stream_asset_id = stream_asset_data["asset_id"]
 
         # Purchase static asset
         try:
-            purchase_response = await session.post(f"http://localhost:8000/purchase-asset/{static_asset_id}", headers=headers)
-            if purchase_response.status == 200:
-                purchase_data = await purchase_response.json()
-                print("Static asset purchased:", purchase_data)
+            # Check balance
+            balance = w3.eth.get_balance(wallet_address)
+            if balance < static_asset_price:
+                print(f"Insufficient balance. You have {balance} wei, but the asset costs {static_asset_price} wei.")
             else:
-                error_text = await purchase_response.text()
-                print(f"Failed to purchase static asset. Status: {purchase_response.status}, Detail: {error_text}")
+                # Generate proof data
+                timestamp = int(time.time())
+                message = f"{wallet_address}:{static_asset_id}:{timestamp}"
+                
+                # The proof is now generated on the server side, so we just send the message
+                purchase_response = await session.post(
+                    f"http://localhost:8000/purchase-asset/{static_asset_id}", 
+                    headers=headers, 
+                    json={"message": message}
+                )
+                if purchase_response.status == 200:
+                    purchase_data = await purchase_response.json()
+                    print("Static asset purchased:", purchase_data)
+                else:
+                    error_text = await purchase_response.text()
+                    print(f"Failed to purchase static asset. Status: {purchase_response.status}, Detail: {error_text}")
         except Exception as e:
             print(f"Error purchasing static asset: {str(e)}")
 

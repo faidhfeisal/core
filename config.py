@@ -24,8 +24,8 @@ WALLET_ADDRESS = os.getenv('WALLET_ADDRESS')
 
 # Other configurations
 STORE_SERVICE_URL = os.getenv('STORE_SERVICE_URL', 'http://localhost:8001')
-STREAM_SERVICE_URL = os.getenv('STREAM_SERVICE_URL', 'http://localhost:8002')
-TRANSACT_SERVICE_URL = os.getenv('TRANSACT_SERVICE_URL', 'http://localhost:8003')
+STREAM_SERVICE_URL = os.getenv('STREAM_SERVICE_URL', 'http://localhost:8001')
+TRANSACT_SERVICE_URL = os.getenv('TRANSACT_SERVICE_URL', 'http://localhost:8001')
 
 def get_web3_url():
     if NETWORK == 'ganache':

@@ -1,5 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import json
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
 app = FastAPI()
 
@@ -11,6 +15,11 @@ class RetrieveRequest(BaseModel):
     ipfs_hash: str
 
 stored_data = {}
+
+def mock_get_public_key_from_did(did: str) -> bytes:
+    # In a real implementation, this would fetch the public key from a DID resolver
+    # For mock purposes, we'll use a fixed public key
+    return bytes.fromhex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 
 @app.post("/store")
 async def store_data(request: StoreRequest):
@@ -27,7 +36,6 @@ async def retrieve_data(request: RetrieveRequest):
 # Mock Stream Service
 class StreamRequest(BaseModel):
     streamId: str
-    data: dict
     did: str
     proof: str
 
@@ -37,7 +45,27 @@ async def publish_stream(request: StreamRequest):
 
 @app.post("/subscribe")
 async def subscribe_stream(request: StreamRequest):
-    return {"status": "subscribed", "streamId": request.streamId}
+    try:
+        proof_obj = json.loads(request.proof)
+        public_key = mock_get_public_key_from_did(request.did)
+        
+        r = int(proof_obj["r"], 16)
+        s = int(proof_obj["s"], 16)
+        message = proof_obj["message"].encode()
+        
+        public_key_obj = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256K1(), public_key)
+        
+        try:
+            public_key_obj.verify(
+                encode_dss_signature(r, s),
+                message,
+                ec.ECDSA(hashes.SHA256())
+            )
+            return {"status": "subscribed", "streamId": request.streamId}
+        except:
+            raise HTTPException(status_code=403, detail="Invalid proof")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Mock Transact Service
 class DeployRequest(BaseModel):
