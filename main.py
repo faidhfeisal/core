@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from web3 import Web3
@@ -16,8 +16,8 @@ import time
 from typing import Dict, Any, Optional
 from src import did_manager
 from src.did_manager import generate_zkproof
-from src.marketplace import add_data_asset, purchase_data_asset
-from config import get_web3_url, GANACHE_URL, CONTRACT_ADDRESS, CONTRACT_ABI, STORE_SERVICE_URL, STREAM_SERVICE_URL, TRANSACT_SERVICE_URL, WALLET_PRIVATE_KEY
+from src.marketplace import add_data_asset, purchase_data_asset, withdraw_revenue
+from config import get_web3_url, GANACHE_URL, CONTRACT_ADDRESS, CONTRACT_ABI, STORE_SERVICE_URL, STREAM_SERVICE_URL, TRANSACT_SERVICE_URL, PRODUCER_PRIVATE_KEY, CONSUMER_PRIVATE_KEY
 from web3.exceptions import ContractLogicError
 
 from dotenv import load_dotenv
@@ -270,6 +270,54 @@ async def get_asset_endpoint(
         logger.error(f"Error retrieving asset: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving asset: {str(e)}")
     
+@app.get("/producer/asset-content/{asset_id}")
+async def retrieve_asset_content_endpoint(
+    asset_id: int,
+    wallet_address: str = Depends(get_authenticated_wallet_address),
+    contract = Depends(get_contract)
+):
+    try:
+        if asset_id not in listed_assets:
+            raise HTTPException(status_code=404, detail="Asset not found")
+        
+        asset = listed_assets[asset_id]
+        
+        # Check ownership using the checkOwnership function
+        try:
+            is_owner = contract.functions.checkOwnership(asset_id, wallet_address).call()
+            if not is_owner:
+                raise HTTPException(status_code=403, detail="You do not own this asset")
+        except ContractLogicError as e:
+            logger.error(f"Contract logic error checking ownership: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error checking asset ownership: {str(e)}")
+        
+        if asset['is_stream']:
+            raise HTTPException(status_code=400, detail="This endpoint is for static assets only")
+        
+        # Retrieve the data from IPFS
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{STORE_SERVICE_URL}/retrieve", json={"ipfs_hash": asset['ipfs_hash']}) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result['success']:
+                            content = result['data']
+                            return Response(content=content, media_type="application/octet-stream", headers={
+                                "Content-Disposition": f"attachment; filename={asset['name']}"
+                            })
+                        else:
+                            raise HTTPException(status_code=500, detail="Failed to retrieve data")
+                    else:
+                        raise HTTPException(status_code=response.status, detail="Failed to retrieve data from store service")
+        except Exception as e:
+            logger.error(f"Error retrieving data from IPFS: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving data: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving asset content: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error retrieving asset content: {str(e)}")
+    
     
 @app.delete("/producer/asset/{asset_id}")
 async def delete_asset_endpoint(
@@ -422,31 +470,121 @@ async def publish_stream_endpoint(
 
 
 # Consumer endpoints
+@app.get("/consumer/list-assets")
+async def list_assets_for_consumer(wallet_address: str = Depends(get_authenticated_wallet_address)):
+    try:
+        assets = []
+        for asset_id, asset_data in listed_assets.items():
+            assets.append({
+                "id": asset_id,
+                "name": asset_data["name"],
+                "description": asset_data["description"],
+                "price": asset_data["price"],
+                "owner": asset_data["owner"],
+                "is_stream": asset_data["is_stream"]
+            })
+        return {"success": True, "assets": assets}
+    except Exception as e:
+        logger.error(f"Error listing assets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing assets: {str(e)}")    
+
+
 @app.post("/consumer/purchase-asset/{asset_id}")
-async def purchase_asset_endpoint(
+async def purchase_asset(
     asset_id: int,
-    purchase_request: PurchaseRequest,
     wallet_address: str = Depends(get_authenticated_wallet_address),
     contract = Depends(get_contract)
 ):
     try:
-        logger.info(f"Attempting to purchase asset {asset_id} for wallet {wallet_address}")
+        if asset_id not in listed_assets:
+            raise HTTPException(status_code=404, detail="Asset not found")
         
+        asset = listed_assets[asset_id]
+        if asset["owner"] == wallet_address:
+            raise HTTPException(status_code=400, detail="You already own this asset")
+
         # Generate ZKP
-        try:
-            did = connected_wallets[wallet_address]["did"]
-            proof = await generate_zkproof(did, purchase_request.message)
-        except Exception as e:
-            logger.error(f"Error generating ZKProof: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error generating proof: {str(e)}")
+        did = connected_wallets[wallet_address]["did"]
+        message = f"Purchase asset {asset_id}"
+        proof = await generate_zkproof(did, message)
+
+        # Purchase asset
+        tx_hash = purchase_data_asset(contract, asset_id, wallet_address, asset["price"], proof)
         
-        tx_hash = purchase_data_asset(contract, asset_id, wallet_address, proof)
-        logger.info(f"Purchased asset: {asset_id} by wallet: {wallet_address}. TX Hash: {tx_hash}")
+        # Update local asset data
+        asset["owner"] = wallet_address
+        
         return {"success": True, "tx_hash": tx_hash}
+    except ContractLogicError as e:
+        logger.error(f"Contract error in purchase_asset: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Contract error: {str(e)}")
     except Exception as e:
-        logger.error(f"Error purchasing asset {asset_id}: {str(e)}", exc_info=True)
+        logger.error(f"Error purchasing asset: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error purchasing asset: {str(e)}")
     
+@app.get("/consumer/my-assets")
+async def list_purchased_assets(wallet_address: str = Depends(get_authenticated_wallet_address)):
+    try:
+        owned_assets = [
+            {"asset_id": asset_id, **asset_data}
+            for asset_id, asset_data in listed_assets.items()
+            if asset_data["owner"] == wallet_address
+        ]
+        return {"success": True, "assets": owned_assets}
+    except Exception as e:
+        logger.error(f"Error listing purchased assets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing purchased assets: {str(e)}")
+
+@app.get("/consumer/asset-content/{asset_id}")
+async def get_asset_content(
+    asset_id: int,
+    wallet_address: str = Depends(get_authenticated_wallet_address),
+    contract = Depends(get_contract)
+):
+    try:
+        if asset_id not in listed_assets:
+            raise HTTPException(status_code=404, detail="Asset not found")
+        
+        asset = listed_assets[asset_id]
+        
+        # Check ownership using the smart contract
+        is_owner = contract.functions.checkOwnership(asset_id, wallet_address).call()
+        if not is_owner:
+            raise HTTPException(status_code=403, detail="You do not own this asset")
+        
+        if asset['is_stream']:
+            return {"stream_id": asset['stream_id']}
+        else:
+            # Retrieve static asset content from IPFS
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{STORE_SERVICE_URL}/retrieve", json={"ipfs_hash": asset['ipfs_hash']}) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        return {"success": True, "content": content.decode()}
+                    else:
+                        raise HTTPException(status_code=response.status, detail="Failed to retrieve asset content")
+    except ContractLogicError as e:
+        logger.error(f"Contract error in get_asset_content: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Contract error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error retrieving asset content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving asset content: {str(e)}")
+
+@app.post("/producer/withdraw-revenue")
+async def withdraw_revenue_endpoint(
+    wallet_address: str = Depends(get_authenticated_wallet_address),
+    contract = Depends(get_contract)
+):
+    try:
+        tx_hash = withdraw_revenue(contract, wallet_address)
+        return {"success": True, "tx_hash": tx_hash}
+    except ContractLogicError as e:
+        logger.error(f"Contract error in withdraw_revenue: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Contract error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error withdrawing revenue: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error withdrawing revenue: {str(e)}")
+
 @app.post("/consumer/subscribe-stream")
 async def subscribe_stream_endpoint(
     subscription: StreamSubscriptionInput,
