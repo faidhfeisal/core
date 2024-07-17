@@ -1,6 +1,7 @@
 # config.py
 import os
 from dotenv import load_dotenv
+from web3 import Web3
 
 load_dotenv()
 
@@ -32,3 +33,6 @@ def get_web3_url():
         return GANACHE_URL
     else:
         return TESTNET_URL
+    
+# Web3 setup
+w3 = Web3(Web3.HTTPProvider(GANACHE_URL))

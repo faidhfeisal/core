@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature, decode_dss_signature
 
-from key_management import add_private_key, get_private_key, save_keys
+from .key_management import add_private_key, get_private_key, save_keys
 
 logger = logging.getLogger(__name__)
 
