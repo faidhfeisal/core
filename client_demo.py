@@ -62,97 +62,127 @@ async def generate_zkproof(wallet_address: str, message: str) -> str:
 async def data_producer_journey(session, headers):
     print("\n--- Data Producer Journey ---")
 
-    # Create a test file
-    test_file_path = "test_file.txt"
+    # Create a static asset
+    print("\nCreating Static Asset:")
+    test_file_path = "test_static_asset.txt"
     with open(test_file_path, "w") as f:
-        f.write("This is a test file for the data marketplace.")
+        f.write("This is a test static asset for the data marketplace.")
 
-    # Add a static asset
-    static_asset = {
-        "name": "Test Static Asset",
-        "description": "A test static asset",
-        "price": 100,
-        "is_stream": False
-    }
-    
-    # Prepare multipart form data
     form_data = aiohttp.FormData()
-    form_data.add_field('file', open(test_file_path, 'rb'), filename='test_file.txt')
-    form_data.add_field('asset', json.dumps(static_asset), content_type='application/json')
+    form_data.add_field('file', open(test_file_path, 'rb'), filename='test_static_asset.txt')
+    form_data.add_field('name', 'Test Static Asset')
+    form_data.add_field('description', 'A test static asset created by a producer')
+    form_data.add_field('price', '100')
 
-    add_static_response = await session.post("http://localhost:8000/add-asset", data=form_data, headers=headers)
-    static_asset_data = await add_static_response.json()
-    print("Static asset added:", static_asset_data)
-    static_asset_id = static_asset_data["asset_id"]
+    add_static_response = await session.post("http://localhost:8000/producer/add-static-asset", data=form_data, headers=headers)
+    if add_static_response.status == 200:
+        static_asset_data = await add_static_response.json()
+        print("Static asset added:", static_asset_data)
+        static_asset_id = static_asset_data["asset_id"]
+    else:
+        print("Failed to add static asset:", await add_static_response.text())
+        return None, None
 
-    # Add a stream asset
-    stream_asset = {
-        "name": "Test Stream Asset",
-        "description": "A test stream asset",
-        "price": 200,
-        "is_stream": True,
-        "data": "test_stream_id"
-    }
-    add_stream_response = await session.post("http://localhost:8000/add-asset", json={"asset": stream_asset}, headers=headers)
-    stream_asset_data = await add_stream_response.json()
-    print("Stream asset added:", stream_asset_data)
-    stream_asset_id = stream_asset_data["asset_id"]
-
-    # Clean up
     os.remove(test_file_path)
 
-    return static_asset_id, stream_asset_id
+    # Create a stream asset
+    print("\nCreating Stream Asset:")
+    stream_asset = {
+        "name": "Test Stream Asset",
+        "description": "A test stream asset created by a producer",
+        "price": 50,
+        "stream_id": "test_stream_id"
+    }
+    
+    create_stream_response = await session.post("http://localhost:8000/producer/create-stream", 
+                                                json=stream_asset, 
+                                                headers=headers)
+    if create_stream_response.status == 200:
+        stream_data = await create_stream_response.json()
+        print("Stream created:", stream_data)
+        stream_asset_id = stream_data["asset_id"]
+    else:
+        print("Failed to create stream:", await create_stream_response.text())
+        return static_asset_id, None
+
+    # List assets
+    print("\nListing Assets:")
+    list_assets_response = await session.get("http://localhost:8000/producer/list-assets", headers=headers)
+    if list_assets_response.status == 200:
+        assets_data = await list_assets_response.json()
+        print("Assets:", assets_data)
+    else:
+        print("Failed to list assets:", await list_assets_response.text())
+
+    # Retrieve specific asset
+    print(f"\nRetrieving Static Asset (ID: {static_asset_id}):")
+    get_asset_response = await session.get(f"http://localhost:8000/producer/asset/{static_asset_id}", headers=headers)
+    if get_asset_response.status == 200:
+        asset_data = await get_asset_response.json()
+        print("Retrieved asset:", asset_data)
+    else:
+        print("Failed to retrieve asset:", await get_asset_response.text())
+
+    # Delete static asset
+    print(f"\nDeleting Static Asset (ID: {static_asset_id}):")
+    delete_asset_response = await session.delete(f"http://localhost:8000/producer/asset/{static_asset_id}", headers=headers)
+    if delete_asset_response.status == 200:
+        delete_data = await delete_asset_response.json()
+        print("Asset deleted:", delete_data)
+    else:
+        print("Failed to delete asset:", await delete_asset_response.text())
+
+    return stream_asset_id, None  # We're not returning static_asset_id as it's been deleted
+
 
 async def data_consumer_journey(session, headers, static_asset_id, stream_asset_id):
     print("\n--- Data Consumer Journey ---")
 
-    # Purchase static asset
-    try:
-        purchase_response = await session.post(f"http://localhost:8000/purchase-asset/{static_asset_id}", headers=headers)
+    if static_asset_id is None and stream_asset_id is None:
+        print("No valid asset IDs provided. Skipping consumer journey.")
+        return
+
+    # Static Asset Operations
+    if static_asset_id is not None:
+        print("\nStatic Asset Operations:")
+        # Purchase static asset
+        purchase_data = {"message": f"Purchase static asset {static_asset_id}"}
+        purchase_response = await session.post(f"http://localhost:8000/consumer/purchase-asset/{static_asset_id}", 
+                                               json=purchase_data, headers=headers)
         if purchase_response.status == 200:
-            purchase_data = await purchase_response.json()
-            print("Static asset purchased:", purchase_data)
+            purchase_result = await purchase_response.json()
+            print("Static asset purchased:", purchase_result)
         else:
-            error_text = await purchase_response.text()
-            print(f"Failed to purchase static asset. Status: {purchase_response.status}, Detail: {error_text}")
-    except Exception as e:
-        print(f"Error purchasing static asset: {str(e)}")
+            print("Failed to purchase static asset:", await purchase_response.text())
 
-    # Subscribe to stream
-    try:
-        subscribe_response = await session.post("http://localhost:8000/subscribe-stream", json={"stream_id": "test_stream_id"}, headers=headers)
+        # Access static asset
+        access_response = await session.get(f"http://localhost:8000/consumer/access-static-asset/{static_asset_id}", headers=headers)
+        if access_response.status == 200:
+            access_result = await access_response.json()
+            print("Accessed static asset:", access_result)
+        else:
+            print("Failed to access static asset:", await access_response.text())
+
+    # Stream Operations
+    if stream_asset_id is not None:
+        print("\nStream Operations:")
+        # Subscribe to stream
+        subscribe_data = {"stream_id": "test_stream_id"}
+        subscribe_response = await session.post("http://localhost:8000/consumer/subscribe-stream", 
+                                                json=subscribe_data, headers=headers)
         if subscribe_response.status == 200:
-            subscribe_data = await subscribe_response.json()
-            print("Subscribed to stream:", subscribe_data)
+            subscribe_result = await subscribe_response.json()
+            print("Subscribed to stream:", subscribe_result)
         else:
-            error_text = await subscribe_response.text()
-            print(f"Failed to subscribe to stream. Status: {subscribe_response.status}, Detail: {error_text}")
-    except Exception as e:
-        print(f"Error subscribing to stream: {str(e)}")
+            print("Failed to subscribe to stream:", await subscribe_response.text())
 
-    # Access static asset
-    try:
-        access_static_response = await session.get(f"http://localhost:8000/access-asset/{static_asset_id}", headers=headers)
-        if access_static_response.status == 200:
-            print("Accessed static asset:", await access_static_response.json())
-        elif access_static_response.status == 403:
-            print("Access denied: You do not own this asset")
-        else:
-            print(f"Failed to access static asset. Status: {access_static_response.status}")
-    except Exception as e:
-        print(f"Error accessing static asset: {str(e)}")
-
-    # Access stream asset
-    try:
-        access_stream_response = await session.get(f"http://localhost:8000/access-asset/{stream_asset_id}", headers=headers)
+        # Access stream
+        access_stream_response = await session.get(f"http://localhost:8000/consumer/access-stream/{stream_asset_id}", headers=headers)
         if access_stream_response.status == 200:
-            print("Accessed stream asset:", await access_stream_response.json())
-        elif access_stream_response.status == 403:
-            print("Access denied: You do not own this asset")
+            stream_data = await access_stream_response.json()
+            print("Accessed stream:", stream_data)
         else:
-            print(f"Failed to access stream asset. Status: {access_stream_response.status}")
-    except Exception as e:
-        print(f"Error accessing stream asset: {str(e)}")
+            print("Failed to access stream:", await access_stream_response.text())
 
 async def main():
     async with aiohttp.ClientSession() as session:
