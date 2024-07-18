@@ -45,15 +45,20 @@ def add_data_asset(contract, ipfs_hash: str, price: int, wallet_address: str):
         if tx_receipt['status'] == 0:
             raise Exception("Transaction failed")
         
+        logger.info(f"Transaction hash: {tx_hash.hex()}")
+        logger.info(f"Transaction receipt: {tx_receipt}")
+        
         # Get the asset ID from the event logs
         logs = contract.events.DataAssetAdded().process_receipt(tx_receipt)
+        logger.debug(f"Logs from process_receipt: {logs}")
         if logs:
             asset_id = logs[0]['args']['assetId']
+            logger.info(f"Asset added to blockchain. Asset ID: {asset_id}, Owner: {checksum_address}")
+            return asset_id, tx_hash.hex()
         else:
+            logger.error("Failed to get asset ID from event logs")
+            logger.debug(f"Transaction receipt: {tx_receipt}")
             raise Exception("Failed to get asset ID from event logs")
-        
-        logger.info(f"Asset added to blockchain. Asset ID: {asset_id}, Owner: {checksum_address}")
-        return asset_id, tx_hash.hex()
     except Exception as e:
         logger.error(f"Error adding asset to blockchain: {str(e)}")
         raise
@@ -75,6 +80,8 @@ def purchase_data_asset(contract, asset_id: int, wallet_address: str, price: int
             'from': checksum_address,
             'value': price
         })
+
+
         
         # Sign the transaction
         signed_txn = web3.eth.account.sign_transaction(txn, private_key=CONSUMER_PRIVATE_KEY)
@@ -84,6 +91,12 @@ def purchase_data_asset(contract, asset_id: int, wallet_address: str, price: int
         
         # Wait for the transaction receipt
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+
+        if tx_receipt['status'] == 0:
+            raise Exception("Transaction failed")
+        
+        logger.info(f"Transaction hash: {tx_hash.hex()}")
+        logger.info(f"Transaction receipt: {tx_receipt}")
         
         if tx_receipt['status'] == 0:
             raise Exception("Transaction failed")
@@ -98,10 +111,18 @@ def purchase_data_asset(contract, asset_id: int, wallet_address: str, price: int
         raise
 
 
+
 def withdraw_revenue(contract, wallet_address: str):
     try:
         # Ensure the wallet_address is checksum address
         checksum_address = Web3.to_checksum_address(wallet_address)
+        
+        # Get the pending revenue for the address
+        pending_revenue = contract.functions.pendingRevenue(checksum_address).call()
+        
+        if pending_revenue == 0:
+            logger.info(f"No revenue to withdraw for address: {checksum_address}")
+            return None
         
         # Get the correct private key for this wallet address
         private_key = get_private_key(checksum_address)
@@ -134,7 +155,5 @@ def withdraw_revenue(contract, wallet_address: str):
         return tx_hash.hex()
     except ContractLogicError as e:
         logger.error(f"Contract logic error: {str(e)}")
-        raise
     except Exception as e:
         logger.error(f"Failed to withdraw revenue: {str(e)}")
-        raise

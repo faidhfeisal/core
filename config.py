@@ -8,7 +8,7 @@ load_dotenv()
 
 
 # Ganache configuration
-NETWORK_URL = os.getenv('GANACHE_URL', 'http://127.0.0.1:8545')
+NETWORK_URL = os.getenv('NETWORK_URL', 'http://127.0.0.1:8545')
 
 # Contract address
 CONTRACT_ADDRESS = os.getenv('CONTRACT_ADDRESS')

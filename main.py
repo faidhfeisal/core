@@ -85,9 +85,9 @@ def get_authenticated_wallet_address(wallet_address: str = Header(...)):
 def get_contract(w3: Web3 = Depends(get_web3)):
     contract_abi = CONTRACT_ABI
     contract_address = CONTRACT_ADDRESS
-    logger.debug(f"Creating contract instance with address: {contract_address}")
-    contract = w3.eth.contract(address=contract_address, abi=contract_abi)
-    logger.debug(f"Contract instance created: {contract}")
+    logger.info(f"Creating contract instance with address: {contract_address}")
+    contract = web3.eth.contract(address=contract_address, abi=contract_abi)
+    logger.info(f"Contract instance created: {contract}")
     return contract
 
 @app.get("/health")
@@ -577,7 +577,10 @@ async def withdraw_revenue_endpoint(
 ):
     try:
         tx_hash = withdraw_revenue(contract, wallet_address)
-        return {"success": True, "tx_hash": tx_hash}
+        if tx_hash:
+            return {"success": True, "tx_hash": tx_hash}
+        else:
+            return {"success": False, "message": "No revenue to withdraw."}
     except ContractLogicError as e:
         logger.error(f"Contract error in withdraw_revenue: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Contract error: {str(e)}")
@@ -755,46 +758,6 @@ async def purchase_data_asset_endpoint(
         raise HTTPException(status_code=500, detail=f"Error purchasing asset: {str(e)}")
     
 
-# @app.post("/subscribe-stream")
-# async def subscribe_stream_endpoint(
-#     subscription: StreamSubscriptionInput,
-#     wallet_address: str = Depends(get_authenticated_wallet_address),
-#     web3: Web3 = Depends(get_web3)
-# ):
-#     try:
-#         logger.info(f"Attempting to subscribe to stream {subscription.stream_id} for wallet {wallet_address}")
-        
-#         if not connected_wallets.get(wallet_address, {}).get("authenticated"):
-#             logger.warning(f"Wallet {wallet_address} not authenticated")
-#             # Authenticate the wallet if it's not already authenticated
-#             connected_wallets[wallet_address] = {"authenticated": True}
-#             if "did" not in connected_wallets[wallet_address]:
-#                 did, key = await did_manager.create_did()
-#                 connected_wallets[wallet_address]["did"] = did
-#                 connected_wallets[wallet_address]["did_key"] = key
-
-#         did = connected_wallets[wallet_address]["did"]
-        
-#         # Generate actual proof
-#         timestamp = int(time.time())
-#         message = f"{wallet_address}:{subscription.stream_id}:{timestamp}"
-#         try:
-#             proof = await generate_zkproof(did, message)
-#         except Exception as e:
-#             logger.error(f"Error generating ZKProof: {str(e)}")
-#             return JSONResponse(status_code=500, content={"detail": f"Error generating proof: {str(e)}"})
-        
-#         logger.info(f"Attempting to subscribe to stream service")
-#         subscribe_result = await subscribe_stream(subscription.stream_id, did, proof)
-#         logger.info(f"Subscribed to stream service. Result: {subscribe_result}")
-        
-#         return JSONResponse(status_code=200, content={"success": True, "subscription": subscribe_result})
-#     except HTTPException as he:
-#         logger.error(f"HTTP error subscribing to stream: {str(he)}")
-#         return JSONResponse(status_code=he.status_code, content={"detail": str(he.detail)})
-#     except Exception as e:
-#         logger.error(f"Error subscribing to stream: {str(e)}", exc_info=True)
-#         return JSONResponse(status_code=500, content={"detail": f"Error subscribing to stream: {str(e)}"})
     
 @app.get("/consumer/access-stream/{asset_id}")
 async def access_stream_endpoint(

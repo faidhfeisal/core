@@ -49,12 +49,12 @@ async def data_producer_journey(session, headers):
     test_file_path = "test_static_asset.txt"
     with open(test_file_path, "w") as f:
         f.write("This is a test static asset for the data marketplace.")
-
+    set_price = Web3.to_wei(0.00000000000000001, 'ether')
     form_data = aiohttp.FormData()
     form_data.add_field('file', open(test_file_path, 'rb'), filename='test_static_asset.txt')
     form_data.add_field('name', 'Test Static Asset')
     form_data.add_field('description', 'A test static asset created by a producer')
-    form_data.add_field('price', '100')
+    form_data.add_field('price', str(set_price))
 
     add_static_response = await session.post("http://localhost:8000/producer/add-static-asset", data=form_data, headers=headers)
     if add_static_response.status == 200:
@@ -111,24 +111,8 @@ async def data_producer_journey(session, headers):
     if get_asset_content_response.status == 200:
         content = await get_asset_content_response.read()
         print(f"Retrieved asset content (first 100 bytes): {content[:100]}")
-        
-        # Optionally, save the content to a file
-        with open(f"retrieved_asset_{static_asset_id}", "wb") as f:
-            f.write(content)
-        print(f"Saved retrieved content to file: retrieved_asset_{static_asset_id}")
-    else:
-        print("Failed to retrieve asset content:", await get_asset_content_response.text())
 
-    # # Delete static asset
-    # print(f"\nDeleting Static Asset (ID: {static_asset_id}):")
-    # delete_asset_response = await session.delete(f"http://localhost:8000/producer/asset/{static_asset_id}", headers=headers)
-    # if delete_asset_response.status == 200:
-    #     delete_data = await delete_asset_response.json()
-    #     print("Asset deleted:", delete_data)
-    # else:
-    #     print("Failed to delete asset:", await delete_asset_response.text())
-
-    return None, static_asset_id  # We're not returning static_asset_id as it's been deleted
+    return None, static_asset_id 
 
 
 async def data_consumer_journey(session, headers):
@@ -175,27 +159,40 @@ async def data_consumer_journey(session, headers):
     content_response = await session.get(f"http://localhost:8000/consumer/asset-content/{asset_to_purchase['id']}", headers=headers)
     if content_response.status == 200:
         content = await content_response.json()
-        print("Asset content (first 100 chars):", content['content'][:100] if len(content['content']) > 100 else content['content'])
-    else:
-        print("Failed to retrieve asset content:", await content_response.text())
 
-    # Withdraw revenue (as producer)
-    print("\nWithdrawing revenue (as producer):")
+async def withdraw_revenue(session, headers):
+    logger.info("--- Withdrawing Revenue ---")
+    
     withdraw_response = await session.post("http://localhost:8000/producer/withdraw-revenue", headers=headers)
     if withdraw_response.status == 200:
         withdraw_result = await withdraw_response.json()
-        print("Withdraw result:", json.dumps(withdraw_result, indent=2))
+        if withdraw_result["success"]:
+            print("Revenue withdrawn successfully. Transaction hash: %s", withdraw_result['tx_hash'])
+            print("Amount withdrawn: %s ETH", Web3.from_wei(withdraw_result['amount'], 'ether'))
+        else:
+            print("No revenue to withdraw: %s", withdraw_result['message'])
     else:
-        print("Failed to withdraw revenue:", await withdraw_response.text())
+        print("Failed to withdraw revenue: %s", await withdraw_response.text())
 
 async def main():
     async with aiohttp.ClientSession() as session:
+        producer_wallet_info = await connect_and_authenticate(session, PRODUCER_WALLET_ADDRESS, PRODUCER_PRIVATE_KEY)
+        consumer_wallet_info = await connect_and_authenticate(session, CONSUMER_WALLET_ADDRESS, CONSUMER_PRIVATE_KEY)
+        
+        if producer_wallet_info and consumer_wallet_info:
+            # Producer journey
+            await data_producer_journey(session, producer_wallet_info)
+            
+            # Consumer journey
+            await data_consumer_journey(session, consumer_wallet_info)
 
-        producer_headers = await connect_and_authenticate(session, PRODUCER_WALLET_ADDRESS, PRODUCER_PRIVATE_KEY)
-        consumer_headers = await connect_and_authenticate(session, CONSUMER_WALLET_ADDRESS, CONSUMER_PRIVATE_KEY)
-        if producer_headers and consumer_headers:
-            static_asset_id, stream_asset_id = await data_producer_journey(session, producer_headers)
-            await data_consumer_journey(session, consumer_headers)
+            # Wait a bit to ensure transactions are processed
+            await asyncio.sleep(15)
+
+            # Producer withdraws revenue
+            await withdraw_revenue(session, producer_wallet_info)
+        else:
+            logger.error("Failed to authenticate wallets. Aborting demo.")
 
 if __name__ == "__main__":
     asyncio.run(main())

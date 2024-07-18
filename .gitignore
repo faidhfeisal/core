@@ -15,3 +15,5 @@ artifacts/
 # Misc
 .DS_Store
 node_modules
+
+keys.json
