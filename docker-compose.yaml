@@ -1,0 +1,42 @@
+version: '3'
+services:
+  core:
+    build: ./core
+    ports:
+      - "8000:8000"
+    environment:
+      - NETWORK_URL=http://ganache:8545
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - CONTRACT_ABI=${CONTRACT_ABI}
+      - PRODUCER_PRIVATE_KEY=${PRODUCER_PRIVATE_KEY}
+      - PRODUCER_WALLET_ADDRESS=${PRODUCER_WALLET_ADDRESS}
+      - CONSUMER_WALLET_ADDRESS=${CONSUMER_WALLET_ADDRESS}
+      - CONSUMER_PRIVATE_KEY=${CONSUMER_PRIVATE_KEY}
+      - STORE_SERVICE_URL=http://store:8001
+      - STREAM_SERVICE_URL=http://stream:8002
+    depends_on:
+      - ganache
+      - store
+      - stream
+
+  store:
+    build: ./store
+    ports:
+      - "8001:8001"
+    environment:
+      - PINATA_API_URL=${PINATA_API_URL}
+      - PINATA_API_KEY=${PINATA_API_KEY}
+      - PINATA_SECRET_API_KEY=${PINATA_SECRET_API_KEY}
+
+  stream:
+    build: ./stream
+    ports:
+      - "8002:8002"
+    environment:
+      - PRIVATE_KEY=${STREAMR_PRIVATE_KEY}
+      - ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
+
+  ganache:
+    image: trufflesuite/ganache-cli:latest
+    ports:
+      - "8545:8545"
