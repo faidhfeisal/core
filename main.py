@@ -17,7 +17,7 @@ from typing import Dict, Any, Optional
 from src import did_manager
 from src.did_manager import generate_zkproof
 from src.marketplace import add_data_asset, purchase_data_asset, withdraw_revenue
-from config import get_web3_url, GANACHE_URL, CONTRACT_ADDRESS, CONTRACT_ABI, STORE_SERVICE_URL, STREAM_SERVICE_URL, TRANSACT_SERVICE_URL, PRODUCER_PRIVATE_KEY, CONSUMER_PRIVATE_KEY
+from config import get_web3_url, NETWORK_URL, CONTRACT_ADDRESS, CONTRACT_ABI, STORE_SERVICE_URL, STREAM_SERVICE_URL, TRANSACT_SERVICE_URL, PRODUCER_PRIVATE_KEY, CONSUMER_PRIVATE_KEY
 from web3.exceptions import ContractLogicError
 
 from dotenv import load_dotenv
@@ -40,7 +40,7 @@ app.add_middleware(
 )
 
 # Web3 setup
-web3 = Web3(Web3.HTTPProvider(GANACHE_URL))
+web3 = Web3(Web3.HTTPProvider(NETWORK_URL))
 
 def get_web3():
     return Web3(Web3.HTTPProvider(get_web3_url()))

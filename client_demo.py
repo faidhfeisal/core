@@ -6,9 +6,9 @@ from eth_account import Account
 from eth_account.messages import encode_defunct
 from web3 import Web3
 import os
-from config import get_web3_url,GANACHE_URL,  PRODUCER_PRIVATE_KEY, CONSUMER_PRIVATE_KEY, PRODUCER_WALLET_ADDRESS, CONSUMER_WALLET_ADDRESS
+from config import get_web3_url,NETWORK_URL,  PRODUCER_PRIVATE_KEY, CONSUMER_PRIVATE_KEY, PRODUCER_WALLET_ADDRESS, CONSUMER_WALLET_ADDRESS
 import logging
-web3 = Web3(Web3.HTTPProvider(GANACHE_URL))
+web3 = Web3(Web3.HTTPProvider(NETWORK_URL))
 
 logger = logging.getLogger(__name__)
 
@@ -40,24 +40,6 @@ async def connect_and_authenticate(session, wallet_address, private_key):
     headers = {"wallet-address": wallet_address}
     return headers
 
-# async def generate_zkproof(wallet_address: str, message: str) -> str:
-#     private_key = WALLET_PRIVATE_KEY
-    
-#     # Create the message to sign
-#     message_to_sign = f"{wallet_address}:{message}:{int(time.time())}"
-#     message_hash = encode_defunct(text=message_to_sign)
-    
-#     # Sign the message
-#     signed_message = web3.eth.account.sign_message(message_hash, private_key=private_key)
-    
-#     # Create the proof object
-#     proof = {
-#         "r": hex(signed_message.r),
-#         "s": hex(signed_message.s),
-#         "message": message_to_sign
-#     }
-    
-#     return json.dumps(proof)
 
 async def data_producer_journey(session, headers):
     print("\n--- Data Producer Journey ---")
