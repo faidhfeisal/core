@@ -146,11 +146,10 @@ Before setting up the Core Service, you need to deploy the `DataMarketplace` sma
 
 3. Build and start the services using Docker Compose:
 
-   Copy the 
+   Copy the docker-compose to the root directory where the .env file is and run
 
    ```bash
-   cp docker-compose.yaml ../ && cd ../ && docker-compose up --build
-
+   docker-compose up -d --build
 
    ```
 
