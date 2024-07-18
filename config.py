@@ -4,7 +4,7 @@ from web3 import Web3
 
 load_dotenv()
 
-# network configuration
+# Ganache configuration
 NETWORK_URL = os.getenv('NETWORK_URL', 'http://ganache:8545')
 
 # Contract address

@@ -1,0 +1,581 @@
+{
+	"info": {
+		"_postman_id": "9016b6de-7af1-41e6-b2c7-fb6f942a4d04",
+		"name": "Core Service API",
+		"description": "Postman collection for the Data Marketplace API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "37088089"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Accounts",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/accounts",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"accounts"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Contract Address",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/contract-address",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"contract-address"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Connect Wallet",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"address\": \"0xYourWalletAddress\"}"
+				},
+				"url": {
+					"raw": "{{base_url}}/connect-wallet",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"connect-wallet"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Authenticate Wallet",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"address\": \"0xYourWalletAddress\", \"signature\": \"YourSignature\"}"
+				},
+				"url": {
+					"raw": "{{base_url}}/authenticate-wallet",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"authenticate-wallet"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create DID",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/create-did",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"create-did"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Add Static Asset",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					},
+					{
+						"key": "Content-Type",
+						"value": "multipart/form-data"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"value": "",
+							"type": "file"
+						},
+						{
+							"key": "name",
+							"value": "Asset Name",
+							"type": "text"
+						},
+						{
+							"key": "description",
+							"value": "Asset Description",
+							"type": "text"
+						},
+						{
+							"key": "price",
+							"value": "100",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/producer/add-static-asset",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"add-static-asset"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List Assets (Producer)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/producer/list-assets",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"list-assets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Asset (Producer)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/producer/asset/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"asset",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Retrieve Asset Content (Producer)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/producer/asset-content/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"asset-content",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Asset (Producer)",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/producer/asset/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"asset",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Stream",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"name\": \"Stream Name\", \"description\": \"Stream Description\", \"price\": 100}"
+				},
+				"url": {
+					"raw": "{{base_url}}/producer/create-stream",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"create-stream"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Publish Stream",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"stream_id\": \"1\", \"data\": {\"key\": \"value\"}}"
+				},
+				"url": {
+					"raw": "{{base_url}}/producer/publish-stream/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"publish-stream",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List Assets (Consumer)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/consumer/list-assets",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"consumer",
+						"list-assets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Purchase Asset",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"message\": \"Purchase message\"}"
+				},
+				"url": {
+					"raw": "{{base_url}}/consumer/purchase-asset/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"consumer",
+						"purchase-asset",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List Purchased Assets",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/consumer/my-assets",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"consumer",
+						"my-assets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Asset Content (Consumer)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/consumer/asset-content/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"consumer",
+						"asset-content",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Withdraw Revenue",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/producer/withdraw-revenue",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"producer",
+						"withdraw-revenue"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Subscribe to Stream",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"stream_id\": \"1\"}"
+				},
+				"url": {
+					"raw": "{{base_url}}/consumer/subscribe-stream",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"consumer",
+						"subscribe-stream"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Access Static Asset",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/consumer/access-static-asset/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"consumer",
+						"access-static-asset",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Purchase Data Asset",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"message\": \"Purchase message\"}"
+				},
+				"url": {
+					"raw": "{{base_url}}/purchase-asset/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"purchase-asset",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Access Stream",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "wallet_address",
+						"value": "0xYourWalletAddress"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/consumer/access-stream/1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"consumer",
+						"access-stream",
+						"1"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

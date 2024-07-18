@@ -124,14 +124,22 @@ Before setting up the Core Service, you need to deploy the `DataMarketplace` sma
    node index.js
    ```
 
-#### Docker Setup
+### Docker Setup
 
-1. Clone all service repositories into the same root directory as in the local setup.
+1. Clone all service repositories into the same root directory:
+
+   ```bash
+   mkdir ownit-marketplace && cd ownit-marketplace
+   git clone https://github.com/faidhfeisal/core.git
+   git clone https://github.com/faidhfeisal/store.git
+   git clone https://github.com/faidhfeisal/stream.git
+   ```
 
 2. Create a `.env` file in the root directory with all the necessary environment variables:
 
    ```
-   CONTRACT_ADDRESS=<deployed_contract_address>
+   NETWORK_URL=http://ganache:8545
+   CONTRACT_ADDRESS=<will_be_updated_after_deployment>
    CONTRACT_ABI=<contract_abi_json_string>
    PRODUCER_PRIVATE_KEY=<producer_private_key>
    PRODUCER_WALLET_ADDRESS=<producer_wallet_address>
@@ -140,39 +148,31 @@ Before setting up the Core Service, you need to deploy the `DataMarketplace` sma
    PINATA_API_URL=<pinata_api_url>
    PINATA_API_KEY=<pinata_api_key>
    PINATA_SECRET_API_KEY=<pinata_secret_api_key>
-   STREAMR_PRIVATE_KEY=<streamr_private_key>
+   STREAMR_PRIVATE_KEY=<streamr_private_key> //make sure this key is in single quotes
    ENCRYPTION_SECRET=<encryption_secret>
    ```
 
 3. Build and start the services using Docker Compose:
 
-   Copy the docker-compose to the root directory where the .env file is and run
+   Copy the docker-compose.yml to the root directory where the .env file is and run:
 
    ```bash
    docker-compose up -d --build
-
    ```
 
-   This will start Ganache, Core, Store, and Stream services.
+   This will start Ganache, deploy the smart contract, and then start the Core, Store, and Stream services.
 
-4. Deploy the smart contract to the Ganache instance running in Docker:
+4. After the contract is deployed, you will see a message in the console with the new contract address. Update the `CONTRACT_ADDRESS` in your `.env` file with this address.
+
+5. Restart the Core service to pick up the new contract address:
 
    ```bash
-   docker exec -it ownit-ai-data-layer2_core_1 npx hardhat run scripts/deploy.js --network localhost
+   docker-compose restart core
    ```
 
-   Update the `CONTRACT_ADDRESS` in the `.env` file with the deployed contract address.
+## API Endpoints
 
-5. Restart the services to pick up the new contract address:
-
-   ```bash
-   docker-compose down
-   docker-compose up
-   ```
-
-### API Endpoints
-
-All services have a postman collection at the root of the directory which documents all endpoints
+All services have a Postman collection at the root of the directory which documents all endpoints.
 
 ## Running the Demo Script
 
@@ -183,9 +183,50 @@ python client_demo.py --producer-address <producer_wallet_address> --producer-ke
 
 For Docker setup:
 ```bash
-docker exec -it ownit-core-1 python client_demo.py --producer-address 0x7801320a590c9e769183010f509F1B949Ad851dF --producer-key 0xd809105ded9161e6a55bd922e03db146fe957fc9c937201015a951e799cfb125 --consumer-address 0x45DAe365024B651159808B62964Dfc6f9b957b77 --consumer-key 0xd93e225e6270caf57f8021daf3c8ec1b4ffc5b1e001b3c56115c2791f0d4b8c1
+docker exec -it ownit-core-1 python client_demo.py --producer-address <producer_wallet_address> --producer-key <producer_private_key> --consumer-address <consumer_wallet_address>  --consumer-key <consumer_private_key>
 ```
 
+## Troubleshooting
+
+### Cannot connect to the blockchain network
+
+If you encounter an error indicating that the Core service cannot connect to the blockchain network, ensure that:
+
+1. The `NETWORK_URL` in your `.env` file is set to `http://ganache:8545` if you are using docker, or `http://127.0.01:8545`  if you are running it local
+
+2. The Ganache service is running and healthy. You can check its status with:
+   ```bash
+   docker-compose ps ganache
+   ```
+3. You can also grab a pair of accounts and private keys from the ganache logs
+   ```bash
+      docker logs ganache
+   ```
+3. If Ganache is not running, start it with:
+   ```bash
+   docker-compose up -d ganache
+   ```
+4. If the issue persists, try restarting all services:
+   ```bash
+   docker-compose down
+   docker-compose up -d
+   ```
+
+### Contract deployment fails
+
+If the contract deployment fails:
+
+1. Ensure Ganache is running and healthy.
+2. Check the logs of the contract-deployer service:
+   ```bash
+   docker-compose logs contract-deployer
+   ```
+3. If necessary, you can manually run the contract deployment:
+   ```bash
+   docker-compose run --rm contract-deployer
+   ```
+
+Remember to update the `CONTRACT_ADDRESS` in your `.env` file and restart the Core service after a successful deployment.
 
 ## Security Considerations
 - Ensure proper key management for wallet private keys
