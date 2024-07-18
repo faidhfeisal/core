@@ -409,35 +409,43 @@ async def delete_asset_endpoint(
     
 @app.post("/producer/create-stream")
 async def create_stream_endpoint(
-    stream_input: StreamAssetInput,
+    name: str = Form(...),
+    description: str = Form(...),
+    price: int = Form(...),
     wallet_address: str = Depends(get_authenticated_wallet_address),
     contract = Depends(get_contract)
 ):
     try:
-        asset_id = len(listed_assets)
-        listed_assets[asset_id] = {
-            "owner": wallet_address,
-            "name": stream_input.name,
-            "description": stream_input.description,
-            "price": stream_input.price,
-            "is_stream": True,
-            "stream_id": stream_input.stream_id
-        }
-        
-        # Add asset to blockchain
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{STREAM_SERVICE_URL}/create", json={
+                "name": name,
+                "description": description,
+                "price": price,
+                "owner_address": wallet_address
+            }) as response:
+                if response.status == 200:
+                    stream_response = await response.json()
+                else:
+                    raise HTTPException(status_code=response.status, detail=await response.text())
+
+        asset_id = stream_response.get("stream_id")
+        if not asset_id:
+            raise HTTPException(status_code=500, detail="Failed to retrieve stream ID")
+
         try:
-            tx_hash = add_data_asset(contract, str(asset_id), stream_input.price, wallet_address)
+            tx_hash = add_data_asset(contract, str(asset_id), price, wallet_address)
         except Exception as e:
             error_msg = f"Error adding stream to blockchain: {str(e)}"
             logger.error(error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
-        
+
         logger.info(f"Added stream asset: {asset_id} by wallet: {wallet_address}")
         return {"success": True, "asset_id": asset_id, "tx_hash": tx_hash}
-    except HTTPException:
-        raise
+
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        error_msg = f"Unexpected error adding stream asset: {str(e)}"
+        error_msg = f"Unexpected error: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
     
@@ -576,14 +584,15 @@ async def withdraw_revenue_endpoint(
     contract = Depends(get_contract)
 ):
     try:
-        tx_hash = withdraw_revenue(contract, wallet_address)
-        if tx_hash:
-            return {"success": True, "tx_hash": tx_hash}
+        result = withdraw_revenue(contract, wallet_address)
+        if result["success"]:
+            return {
+                "success": True,
+                "tx_hash": result["tx_hash"],
+                "amount": str(result["amount"])  # Convert to string to avoid JSON serialization issues
+            }
         else:
-            return {"success": False, "message": "No revenue to withdraw."}
-    except ContractLogicError as e:
-        logger.error(f"Contract error in withdraw_revenue: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Contract error: {str(e)}")
+            return {"success": False, "message": result["message"]}
     except Exception as e:
         logger.error(f"Error withdrawing revenue: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error withdrawing revenue: {str(e)}")

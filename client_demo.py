@@ -164,15 +164,32 @@ async def withdraw_revenue(session, headers):
     logger.info("--- Withdrawing Revenue ---")
     
     withdraw_response = await session.post("http://localhost:8000/producer/withdraw-revenue", headers=headers)
+    
+    print(f"Withdraw response status: {withdraw_response}")
+    
     if withdraw_response.status == 200:
         withdraw_result = await withdraw_response.json()
-        if withdraw_result["success"]:
-            print("Revenue withdrawn successfully. Transaction hash: %s", withdraw_result['tx_hash'])
-            print("Amount withdrawn: %s ETH", Web3.from_wei(withdraw_result['amount'], 'ether'))
+        print(f"Withdraw result: {withdraw_result}")
+        
+        if withdraw_result.get("success"):
+            print("Revenue withdrawn successfully. Transaction hash: %s", withdraw_result.get('tx_hash', 'N/A'))
+            
+            if 'amount' in withdraw_result:
+                try:
+                    amount_wei = int(withdraw_result['amount'])
+                    amount_eth = Web3.from_wei(amount_wei, 'ether')
+                    logger.info("Amount withdrawn: %s ETH", amount_eth)
+                except ValueError:
+                    logger.info(f"Invalid amount format: {withdraw_result['amount']}")
+            else:
+                print("Amount not provided in withdrawal result")
         else:
-            print("No revenue to withdraw: %s", withdraw_result['message'])
+            print("Failed to withdraw revenue: %s", withdraw_result.get('message', 'No error message provided'))
     else:
-        print("Failed to withdraw revenue: %s", await withdraw_response.text())
+        error_text = await withdraw_response.text()
+        print(f"Failed to withdraw revenue. Status: {withdraw_response.status}, Response: {error_text}")
+
+    print("--- End of Withdrawal Process ---")
 
 async def main():
     async with aiohttp.ClientSession() as session:

@@ -114,23 +114,18 @@ def purchase_data_asset(contract, asset_id: int, wallet_address: str, price: int
 
 def withdraw_revenue(contract, wallet_address: str):
     try:
-        # Ensure the wallet_address is checksum address
         checksum_address = Web3.to_checksum_address(wallet_address)
         
-        # Get the pending revenue for the address
         pending_revenue = contract.functions.pendingRevenue(checksum_address).call()
-        
+        logger.info(f"Pending revenue for {checksum_address}: {pending_revenue}")
+
         if pending_revenue == 0:
-            logger.info(f"No revenue to withdraw for address: {checksum_address}")
-            return None
+            logger.info(f"No revenue to withdraw for {checksum_address}")
+            return {"success": False, "message": "No revenue to withdraw"}
         
-        # Get the correct private key for this wallet address
         private_key = get_private_key(checksum_address)
-        
-        # Get the nonce for the transaction
         nonce = web3.eth.get_transaction_count(checksum_address)
         
-        # Build the transaction
         txn = contract.functions.withdrawRevenue().build_transaction({
             'chainId': web3.eth.chain_id,
             'gas': 2000000,
@@ -139,21 +134,15 @@ def withdraw_revenue(contract, wallet_address: str):
             'from': checksum_address
         })
         
-        # Sign the transaction with the correct private key
         signed_txn = web3.eth.account.sign_transaction(txn, private_key=private_key)
-        
-        # Send the transaction
         tx_hash = web3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        
-        # Wait for the transaction receipt
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
         
         if tx_receipt['status'] == 0:
             raise Exception("Transaction failed")
         
         logger.info(f"Revenue withdrawn by {checksum_address}")
-        return tx_hash.hex()
-    except ContractLogicError as e:
-        logger.error(f"Contract logic error: {str(e)}")
+        return {"success": True, "tx_hash": tx_hash.hex(), "amount": str(pending_revenue)}
     except Exception as e:
         logger.error(f"Failed to withdraw revenue: {str(e)}")
+        return {"success": False, "message": str(e)}
