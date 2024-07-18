@@ -68,5 +68,4 @@ def save_keys():
 def load_keys():
     key_manager.load_from_file('keys.json')
 
-# Call this function when your application starts
 load_keys()
