@@ -66,7 +66,6 @@ class StreamAssetInput(BaseModel):
     name: str
     description: str
     price: int
-    stream_id: str
 
 class PurchaseInput(BaseModel):
     asset_id: int
@@ -409,20 +408,19 @@ async def delete_asset_endpoint(
     
 @app.post("/producer/create-stream")
 async def create_stream_endpoint(
-    name: str = Form(...),
-    description: str = Form(...),
-    price: int = Form(...),
+    stream_input: StreamAssetInput,
     wallet_address: str = Depends(get_authenticated_wallet_address),
     contract = Depends(get_contract)
 ):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{STREAM_SERVICE_URL}/create", json={
-                "name": name,
-                "description": description,
-                "price": price,
+                "name": stream_input.name,
+                "description": stream_input.description,
+                "price": stream_input.price,
                 "owner_address": wallet_address
             }) as response:
+                logger.info(f"Stream creation response: {response}")
                 if response.status == 200:
                     stream_response = await response.json()
                 else:
@@ -433,7 +431,7 @@ async def create_stream_endpoint(
             raise HTTPException(status_code=500, detail="Failed to retrieve stream ID")
 
         try:
-            tx_hash = add_data_asset(contract, str(asset_id), price, wallet_address)
+            tx_hash = add_data_asset(contract, str(asset_id), stream_input.price, wallet_address)
         except Exception as e:
             error_msg = f"Error adding stream to blockchain: {str(e)}"
             logger.error(error_msg)
@@ -449,25 +447,26 @@ async def create_stream_endpoint(
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
     
+
+    
 @app.post("/producer/publish-stream/{stream_id}")
 async def publish_stream_endpoint(
     stream_id: str,
-    data: Dict[str, Any],
+    stream_data: Dict[str, Any],
     wallet_address: str = Depends(get_authenticated_wallet_address)
 ):
     try:
-        did = connected_wallets[wallet_address]["did"]
-        timestamp = int(time.time())
-        message = f"{wallet_address}:{stream_id}:{timestamp}"
-        proof = await generate_zkproof(did, message)
+        # did = connected_wallets[wallet_address]["did"]
+        # timestamp = int(time.time())
+        # message = f"{wallet_address}:{stream_id}:{timestamp}"
+        # proof = await generate_zkproof(did, message)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{STREAM_SERVICE_URL}/publish", json={
                 "stream_id": stream_id,
-                "data": data,
-                "did": did,
-                "proof": proof
+                "data": stream_data
             }) as response:
+                logger.info(f"Stream publish response: {response}")
                 if response.status == 200:
                     return await response.json()
                 else:
@@ -611,8 +610,7 @@ async def subscribe_stream_endpoint(
         proof = await generate_zkproof(did, message)
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(f"{STREAM_SERVICE_URL}/subscribe", json={
-                "stream_id": subscription.stream_id,
+            async with session.post(f"{STREAM_SERVICE_URL}/subscribe/{subscription.stream_id,}", json={
                 "did": did,
                 "proof": proof
             }) as response:
@@ -672,73 +670,6 @@ async def access_static_asset_endpoint(
         logger.error(f"Error accessing static asset: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error accessing static asset: {str(e)}")
 
-# @app.post("/add-asset")
-# async def add_data_asset_endpoint(
-#     file: Optional[UploadFile] = File(None),
-#     asset: str = Form(...),
-#     wallet_address: str = Depends(get_authenticated_wallet_address),
-#     contract = Depends(get_contract)
-# ):
-#     try:
-#         asset_data = json.loads(asset)
-#         asset_input = AssetInput(**asset_data)
-        
-#         if asset_input.is_stream:
-#             asset_id = len(listed_assets)
-#             listed_assets[asset_id] = {
-#                 "owner": wallet_address,
-#                 "name": asset_input.name,
-#                 "description": asset_input.description,
-#                 "price": asset_input.price,
-#                 "is_stream": True,
-#                 "stream_id": asset_input.data
-#             }
-#         else:
-#             if not file:
-#                 raise HTTPException(status_code=400, detail="File is required for static assets")
-            
-#             # For static assets, we need to store the data first
-#             try:
-#                 async with aiohttp.ClientSession() as session:
-#                     form = aiohttp.FormData()
-#                     form.add_field('file', await file.read(), filename=file.filename)
-#                     async with session.post(f"{STORE_SERVICE_URL}/store", data=form) as response:
-#                         if response.status == 200:
-#                             store_result = await response.json()
-#                             ipfs_hash = store_result['ipfs_hash']
-#                         else:
-#                             raise HTTPException(status_code=response.status, detail="Failed to store data")
-#             except Exception as e:
-#                 error_msg = f"Error storing data: {str(e)}"
-#                 logger.error(error_msg)
-#                 raise HTTPException(status_code=500, detail=error_msg)
-            
-#             asset_id = len(listed_assets)
-#             listed_assets[asset_id] = {
-#                 "owner": wallet_address,
-#                 "name": asset_input.name,
-#                 "description": asset_input.description,
-#                 "price": asset_input.price,
-#                 "is_stream": False,
-#                 "ipfs_hash": ipfs_hash
-#             }
-        
-#         # Add asset to blockchain
-#         try:
-#             tx_hash = add_data_asset(contract, str(asset_id), asset_input.price, wallet_address)
-#         except Exception as e:
-#             error_msg = f"Error adding asset to blockchain: {str(e)}"
-#             logger.error(error_msg)
-#             raise HTTPException(status_code=500, detail=error_msg)
-        
-#         logger.info(f"Added asset: {asset_id} by wallet: {wallet_address}")
-#         return {"success": True, "asset_id": asset_id, "tx_hash": tx_hash}
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         error_msg = f"Unexpected error adding asset: {str(e)}"
-#         logger.error(error_msg)
-#         raise HTTPException(status_code=500, detail=error_msg)
 
 # 3. Asset Purchasing and Stream Subscription
 @app.post("/purchase-asset/{asset_id}")
@@ -765,8 +696,6 @@ async def purchase_data_asset_endpoint(
     except Exception as e:
         logger.error(f"Error purchasing asset {asset_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error purchasing asset: {str(e)}")
-    
-
     
 @app.get("/consumer/access-stream/{asset_id}")
 async def access_stream_endpoint(
@@ -799,74 +728,6 @@ async def access_stream_endpoint(
         logger.error(f"Error accessing stream asset: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error accessing stream asset: {str(e)}")
 
-# 4. Data Access
-@app.get("/access-asset/{asset_id}")
-async def access_asset_endpoint(
-    asset_id: int,
-    wallet_address: str = Depends(get_authenticated_wallet_address),
-    contract = Depends(get_contract)
-):
-    try:
-        if asset_id not in listed_assets:
-            raise HTTPException(status_code=404, detail="Asset not found")
-        
-        asset = listed_assets[asset_id]
-        
-        # Check ownership using the checkOwnership function
-        try:
-            is_owner = contract.functions.checkOwnership(asset_id, wallet_address).call()
-            if not is_owner:
-                raise HTTPException(status_code=403, detail="You do not own this asset")
-        except ContractLogicError as e:
-            logger.error(f"Contract logic error checking ownership: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error checking asset ownership: {str(e)}")
-        
-        if asset['is_stream']:
-            # For streams, return the stream ID
-            return {"stream_id": asset['stream_id']}
-        else:
-            # For static assets, retrieve the data from IPFS
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(f"{STORE_SERVICE_URL}/retrieve", json={"ipfs_hash": asset['ipfs_hash'], "output_path": "temp_file"}) as response:
-                        if response.status == 200:
-                            result = await response.json()
-                            if result['success']:
-                                with open("temp_file", "rb") as f:
-                                    data = f.read()
-                                os.remove("temp_file")  # Clean up the temporary file
-                                return {"data": data.decode()}
-                            else:
-                                raise HTTPException(status_code=500, detail="Failed to retrieve data")
-                        else:
-                            raise HTTPException(status_code=response.status, detail="Failed to retrieve data")
-            except Exception as e:
-                logger.error(f"Error retrieving data from IPFS: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error retrieving data: {str(e)}")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error accessing asset: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error accessing asset: {str(e)}")
-
-
-
-async def subscribe_stream(stream_id: str, did: str, proof: str):
-    url = f"{STREAM_SERVICE_URL}/subscribe"
-    payload = {
-        "streamId": stream_id,
-        "did": did,
-        "proof": proof,  # Send the proof as a string
-        "data": {}  # Add an empty data dict as required by the stream service
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                response_text = await response.text()
-                logger.error(f"Failed to subscribe to stream. Status: {response.status}, Response: {response_text}")
-                raise HTTPException(status_code=response.status, detail=f"Failed to subscribe to stream: {response_text}")
 
 if __name__ == "__main__":
     import uvicorn

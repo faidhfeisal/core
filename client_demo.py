@@ -67,25 +67,40 @@ async def data_producer_journey(session, headers):
 
     os.remove(test_file_path)
 
-    # # Create a stream asset
-    # print("\nCreating Stream Asset:")
-    # stream_asset = {
-    #     "name": "Test Stream Asset",
-    #     "description": "A test stream asset created by a producer",
-    #     "price": 50,
-    #     "stream_id": "test_stream_id"
-    # }
+    # Create a stream asset
+    print("\nCreating Stream Asset:")
+    stream_asset = {
+        "name": "Test Stream Asset",
+        "description": "A test stream asset created by a producer",
+        "price": 50,
+        "stream_id": "test_stream_id"
+    }
     
-    # create_stream_response = await session.post("http://localhost:8000/producer/create-stream", 
-    #                                             json=stream_asset, 
+    create_stream_response = await session.post("http://localhost:8000/producer/create-stream", 
+                                                json=stream_asset, 
+                                                headers=headers)
+    if create_stream_response.status == 200:
+        stream_data = await create_stream_response.json()
+        print("Stream created:", stream_data)
+        stream_asset_id = stream_data["asset_id"]
+    else:
+        print("Failed to create stream:", await create_stream_response.text())
+        return stream_asset_id, None
+    
+    #  # Publish data to stream
+    # print("\Publishing data to stream:")
+    # stream_data = {
+    #     "hello": "world" }
+    
+    # publish_stream_response = await session.post("http://localhost:8000/producer/publish-stream/{stream_asset_id}", 
+    #                                             json=stream_data, 
     #                                             headers=headers)
-    # if create_stream_response.status == 200:
-    #     stream_data = await create_stream_response.json()
-    #     print("Stream created:", stream_data)
-    #     stream_asset_id = stream_data["asset_id"]
+    # if publish_stream_response.status == 200:
+    #     stream_data = await publish_stream_response.json()
+    #     print("Published encrypted data to stream")
     # else:
-    #     print("Failed to create stream:", await create_stream_response.text())
-    #     return static_asset_id, None
+    #     print("Failed to publish to stream :", await publish_stream_response.text())
+    #     return stream_asset_id, None
 
     # List assets
     print("\nListing Assets:")
